@@ -1,6 +1,6 @@
 ---
 title: "Classification"
-author: Aarushi Pandey ^[[Aarushi's Portfolio]()](https://github.com/Aarushi-Pandey/Portfolio_ML)
+author: Aarushi Pandey ^[[Aarushi's Portfolio]()](https://aarushi-pandey.github.io/Portfolio_ML/)
         Brandon Runyon ^[[Brandon's Portfolio]()]
         Zachary Canoot ^[[Zaiquiri's Portfolio](https://zaiquiriw.github.io/ml-portfolio/)]
         Gray Simpson ^[[Gray's Porfolio](https://ecclysium.github.io/MachineLearning_Portfolio/)]
