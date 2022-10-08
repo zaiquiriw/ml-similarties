@@ -6,3 +6,5 @@
 *.Ruserdata
 *.html
 *.nb.html
+*.Rproj
+*.log
