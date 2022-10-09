@@ -17,9 +17,149 @@ output:
 ---
 
 # What is Our Data?
+Using the dataset [Spotify Unpopular Songs](https://www.kaggle.com/datasets/estienneggx/spotify-unpopular-songs). It contains audio characteristics of many unpopular songs such as perceived intensity, key, decibels, and more.
 
 # Exploring Our Data
 
+In this notebook, we will be performing dimensionality reduction to attempt to improve performance and accuracy in kNN regression.
+
+Let's read in the data and take a peek.
+```{r}
+library(caret)
+df <- read.csv("data/unpopular_songs.csv")
+summary(df)
+```
+
+We can see we largely have quantitative data, with a few exceptions. Not all of these are useful, but we'll make whether or not its explicit a factor for now, as well as popularity (after we look at correlation). We'll also look for correlated values.
+```{r}
+df$explicit <- as.factor(df$explicit)
+summary(df)
+cor(df[c(1,2,3,4,5,6,7,8,9,10,11,12,14)])
+df$popularity <- as.factor(df$popularity)
+```
+We don't see a ton of clearly related values, though how many attributes we have does make it difficult to read. 
+
+Let's take a closer look at popularity, now that its factored.
+```{r}
+summary(df$popularity)
+```
+Hmm, a few too many factors. Let's combine some of these with respect to how many are in each category. 0, and 1, then 2, 3, 4, 5, and 6. After that, 7, 8, 9, 10, 11, 12, and 13. Then 14 to 18. We'll then add it to the main dataframe.
+```{r}
+#install.packages("forcats")
+library(forcats)
+popularityclass <- fct_collapse(df$popularity, horrible=c('0','1'), bad=c('2','3','4','5','6'), okay=c('7','8','9','10','11','12','13'), passable=c('14','15','16','17','18'))
+
+df$popclass <- popularityclass
+```
+
+And now we'll be sure it worked.
+```{r}
+summary(df$popclass)
+names(df)
+```
+Cheers! Let's separate it into training data now.
+```{r}
+i <- sample(1:nrow(df),nrow(df)*.8,replace=FALSE)
+train <- df[i,]
+test <- df[-i,]
+```
+
+
+
+Let's look at some charts.
+```{r}
+pairs(df[c(3,4,6,8,9,11)])
+plot(density(df$loudness),lwd=2)
+plot(density(df$valence),lwd=2)
+plot(density(df$tempo),lwd=2)
+plot(density(df$speechiness),lwd=2)
+```
+We can now better understand how the data is laid out, and confirmed that correlation is difficult to find. This is why we will be using a kNN model to test dimensionality on this data.
+
+
 # Dimensionality Algorithms
 
+
+Okay, now let's run PCA on the data. We have a lot of columns to consider. We'll center and scale them while we're at it.
+```{r}
+set.seed(128)
+pca_out <- preProcess(train[1:14], method=c("center","scale","pca"))
+pca_out
+```
+We weren't able to remove much, 
+
+
+Let's plot what we got. We'll pick 3 random principal components to chart. 
+```{r}
+train_pc <- predict(pca_out,train[1:14])
+test_pc <- predict(pca_out, test[,1:14])
+
+#install.packages("plotly")
+library(plotly)
+#plot(test_pc$PC1, test_pc$PC2, test_pc$PC3, pch=c(16,17,18,15)[unclass(test_pc$popclass)], col=c("red","orange","yellow","green")[unclass(test$popclass)])
+plot_ly(x=test_pc$PC1, y=test_pc$PC2, z=test_pc$PC8, type="scatter3d", mode="markers",color=test$popclass)
+```
+Things are not looking promising.
+
+Let's try kNN on it.
+```{r}
+library(class)
+train_df <- data.frame(train_pc$PC1,train_pc$PC2,train_pc$PC8, train$popclass)
+test_df <- data.frame(test_pc$PC1,test_pc$PC2,test_pc$PC8, test$popclass)
+predknn <- knn(train=train_df[,1:3], test=test_df[,1:3], cl=train_df[,4], k=3)
+mean(predknn==test$popclass)
+confusionMatrix(data=predknn, reference=test$popclass)
+```
+Yeah, that didn't tell us a ton.
+
+
+
+# Linear Discriminant Analysis
+Let's see if LDA works better for our data set. However, we know well that out data is not linear, so hopes are low.
+```{r}
+library(MASS)
+ldapop <- MASS::lda(x=train[,1:12],grouping=train$popclass, data=train)
+#ldapop <- lda(popclass~., data=train)
+ldapop$means
+```
+Means were found well, and everything looks good. 
+We have to break it up for the sake of plotly syntax, as it seemed to have some confusion due to commas in predictor names.PCA was strictly dimension reduction, but LDA also predicts, so we won't be using kNN this time.
+```{r}
+lda_pred <- predict(ldapop,data=test,type="class")
+lda_pred$class
+#lda_train <- predict(ldapop,data=train,type="class")
+
+```
+We know the majority of our data is in the 'bad' or 'horrible' range, so all looks good here.
+
+Now, let's plot it!
+```{r}
+library(plotly)
+plot(lda_pred$x[,1], lda_pred$x[,3], pch=c(16,17,18,15)[unclass(test_pc$popclass)], col=c("red","orange","yellow","green")[unclass(test$popclass)])
+xaxis <- lda_pred$x[,1]
+yaxis <- lda_pred$x[,2] 
+zaxis <- lda_pred$x[,3]
+target<- lda_pred$class
+plot_ly(x=xaxis,y=yaxis,z=zaxis,type="scatter3d",mode="markers",color=target)
+```
+It looks pretty good for understanding bad and horrible songs, but not so much for other kinds. All the same, there is a lot more visible differences than when we used PCA, though we weren't able to chart all the components that were produced to see a visible appearance. Here, we are able to chart everything given to us.
+
+
+We now combine our resulting data into a data frame so we can take a look and see how well it predicted class. 
+```{r}
+library(class)
+#ldatest_df <- data.frame(lda_pred$x[,1],lda_pred$x[,2],lda_pred$x[,3], lda_pred$class)
+mean(lda_pred$class==test$popclass)
+#confusionMatrix(data=lda_pred$class, reference=test$popclass)
+```
+
+
+
 # Conclusion and Analysis
+
+
+
+
+
+
+
