@@ -1,6 +1,6 @@
 ---
 title: "Regession"
-author: Aarushi Pandey ^[[Aarushi's Portfolio]()]
+author: Aarushi Pandey ^[[Aarushi's Portfolio](https://aarushi-pandey.github.io/Portfolio_ML/)]
         Brandon Runyon ^[[Brandon's Portfolio]()]
         Zachary Canoot ^[[Zaiquiri's Portfolio](https://zaiquiriw.github.io/ml-portfolio/)]
         Gray Simpson ^[[Gray's Porfolio](https://ecclysium.github.io/MachineLearning_Portfolio/)]
@@ -17,9 +17,165 @@ output:
 ---
 
 # What is Our Data?
+This notebook explores song data from [Kaggle](https://www.kaggle.com/datasets/budincsevity/szeged-weather). In particular, this is a Hungary dataset.
 
 # Exploring Our Data
 
+Load the weatherHistory.csv file. 
+```{r}
+df <- read.csv("weatherHistory.csv")
+df_temp <- df
+str(df)
+```
+
+Calculate difference in Apparent Temperature and Temperature and add it as new data field.
+```{r}
+df$Temperature.TempDiff <- df$Temperature..C. - df$Apparent.Temperature..C
+str(df)
+```
+Convert Precip.Type and Summary to factors (since they only have a few possible values)
+
+```{r}
+df$Precip.Type <- as.factor(df$Precip.Type)
+df$Summary <- as.factor(df$Summary)
+str(df)
+```
+Our goal is to see if we can see how other weather factors, such as Wind Speed and Humidity, relate to the difference between Apparent Temperature and actual Temperature. Though we identify apparent temperature as a very good predictor of the difference, we do not use this in this assignment as we are interested in exploring more the other factors that influence the disparity. 
+
+##a. We'll divide the data into train and test.
+```{r}
+set.seed(8)
+i <- sample(1:nrow(df),nrow(df)*.8,replace=FALSE)
+train <- df[i,]
+test <- df[-i,]
+```
+
+##b. Exploring training data:
+
+```{r}
+names(df)   # getting col names
+dim(df)   # getting number of rows and cols
+head(df)  # getting first 6 rows
+colMeans(df[4:11])   # calculating mean of linear cols
+```
+Since Loud.Cover col has a mean of 0, it might have NA values.
+```{r}
+colSums(is.na(df))
+sum(df$Loud.Cover)
+```
+In actuality, there are no NA values in Loud.Cover col. But since all the values there are 0, we will not gain much from using it in the prediction model. So we'll ignore it.
+
+```{r}
+summary(df)
+summary(df$Summary)  
+sum(df$Wind.Speed..km.h.==0)
+```
+It is unlikely that there is absolutely no wind so some of this data may not be accurate.
+
+We'll pull up some graphs to get a better idea of what we have to do, now. Yellow dots are null precipitation days, green is rain, and blue is snow.
+```{r}
+cor(df[4:7])
+boxplot(df$Temperature.TempDiff)
+boxplot(df$Humidity)
+boxplot(df$Wind.Speed..km.h.)
+plot(df$Temperature.TempDiff,df$Wind.Speed..km.h.,pch=21,bg=c("yellow","green","blue")[as.integer(df$Precip.Type)])  # lots of 0 values
+plot(df$Temperature.TempDiff,df$Humidity,pch=21,bg=c("yellow","green","blue")[as.integer(df$Precip.Type)])  # lots of 0 values
+plot(df$Temperature.TempDiff,df$Temperature..C.,pch=21,bg=c("yellow","green","blue")[as.integer(df$Precip.Type)])  # lots of 0 values
+```
+
+Now, we'll clean up the data according to what we found. We'll clean up only what is referenced, but we will delete what we are uncertain about, since we have such a large amount of data.
+```{r}
+df[,6:7][df[,6:7]==0] <- NA  # change 0s to NA values in Humidity and Wind Speed cols
+df[,13:13][df[,13:13]==0] <- NA  # change 0s to NA values in TempDiff col
+df <- na.omit(df)  # since we have enough data we can omit those which have NA values
+summary(df)
+df_temp <- df
+```
+Make the graphs again.
+```{r}
+cor(df[4:7])
+boxplot(df$Temperature.TempDiff)
+boxplot(df$Humidity)
+boxplot(df$Wind.Speed..km.h.)
+plot(df$Temperature.TempDiff,df$Wind.Speed..km.h.,pch=21,bg=c("yellow","green","blue")[as.integer(df$Precip.Type)])  # lots of 0 values
+plot(df$Temperature.TempDiff,df$Humidity,pch=21,bg=c("yellow","green","blue")[as.integer(df$Precip.Type)])  # lots of 0 values
+plot(df$Temperature.TempDiff,df$Temperature..C.,pch=21,bg=c("yellow","green","blue")[as.integer(df$Precip.Type)])  # lots of 0 values
+```
+
+We'll clean up the train and test data again (removing the rows that had NA values).
+```{r}
+trainindex <- sample(1:nrow(df),nrow(df)*.8,replace=FALSE)
+train <- df[trainindex,]
+test <- df[-trainindex,]
+```
 # Regression Algorithms
 
+
+## Linear Regression (multiple columns)
+
+We'll use a combination of predictors, interaction effects, and polynomial regression to see if we can get an accurate regression model. 
+```{r}
+linreg <- lm(Temperature.TempDiff~poly(Humidity*Wind.Speed..km.h.)+Precip.Type+Summary,data=train)
+summary(linreg)
+par(mfrow=c(2,2))
+plot(linreg)
+```
+ We understand from our data exploration that Humidity, Wind Speed, and Precipitation Type all relate to the data in different ways. We can find different trends depending on what we're looking at, so we can ask the model to reference all of that data when its processing now. When the precipitation type was rain, it didn't add much to figuring things out, but knowing that it was in the snow range was very helpful. In addition, we added Summary as well as an interaction effect with precipitation. We made this decision based on the cloud of Partly Cloudy values that didn't seem to follow other data, and we can see that some specific Summary values were quite helpful in the result, and some were not.
+  
+  R^2 is almost 0.7, which is a good value. (We want R^2 to be close to 1.) The p-value is very low, and the RSE is low as well (less than 1 y-unit).
+  
+## kNN regression
+
+Load required library for prediction
+Also, need to convert factors back to characters since kNN model does not like factors.
+```{r}
+library(caret)
+str(df)
+df <- df_temp
+df$Summary <- as.character(df$Summary)
+df$Precip.Type <- as.character(df$Precip.Type)
+#str(df)
+#colnames(df)
+df <- df[-10]
+str(df)
+trainindex <- sample(1:nrow(df),nrow(df)*.8,replace=FALSE)
+train <- df[trainindex,]
+test <- df[-trainindex,]
+fit <- knnreg(train[,4:11], train[,12], k=3)
+
+```
+  
+## Predictions
+  Using the three models, we will predict and evaluate using the metric correlation and MSE. 
+```{r}
+
+linregpred <- predict(linreg,newdata=test)
+linregcor <- cor(linregpred,test$Temperature.TempDiff)
+linregmse <- mean((linregpred-test$Temperature.TempDiff)^2)
+linregrmse <- sqrt(linregmse)
+
+# errors happening here
+knnpred <- predict(fit, test[,4:11])
+knncor <- cor(knnpred, test$Temperature.TempDiff)
+knnmse <- mean((knnpred-test$Temperature.TempDiff)^2)
+knnrmse <- sqrt(knnmse)
+#Output results
+print("-------Linear Regression Model-------")
+print(paste("Correlation: ", linregcor))
+print(paste("MSE: ", linregmse))
+print(paste("RMSE: ", linregrmse))
+print("-------kNN Model-------")
+print(paste("Correlation: ", knncor))
+print(paste("MSE: ", knnmse))
+print(paste("RMSE: ", knnrmse))
+
+```
 # Conclusion and Analysis
+
+ Judging by these values, we can verify our evaluation that the combination linear regression model was the best model for our data. The low MSE (mean squared error) in comparison to the simple and multiple models means that the mistakes made were smaller than others. The RMSE (root MSE) says that we were off, on average, .939 degrees Celsius. While this isn't entirely accurate, the range of the value was around -5 degrees to +10 degrees, and if someone was predicting the weather the average person would likely be tolerant of a one degree difference. In that sense, the multiple regression would also be considered accurate enough to be helpful. The simple model is not terrible either, however the low correlation and high MSE do support the fact that there is much more room for improvement.
+  
+  The difference in temperature is not extremely related to the wind speed, as we attempted in that first model. While it is a factor, the apparent temperature is a multifaceted issue better represented by numerous other effects, such as Humidity, precipitation, etc. 
+  
+  Our results were also very good considering we were purposely avoiding using one aspect of given data, and that there were disparities showing what may have been differences due to how different contributors to the data set initially reading data in different ways.
+  
+  In summary, we can extract a surprising amount of data about the disparity in temperature based on wind, humidity, precipitation, and even descriptors of the sky. The more we combine usage of different attributes, acknowledging how they interact and work together, the better a result we can get.
