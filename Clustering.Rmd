@@ -14,11 +14,101 @@ output:
       collapsed: true
       smooth_scroll: true
   pdf_document: default
+editor_options: 
+  markdown: 
+    wrap: 80
 ---
 
 # What is Our Data?
 
+We like to think that a lot of people are going to use this database! When it
+comes to clustering, the first use case is automatic recommendations for apps
+like Netflix or Spotify. Our data, [Spotify most unpopular
+songs](https://www.kaggle.com/datasets/estienneggx/spotify-unpopular-songs),
+details different characteristics about 10,000+ of the top most disliked songs
+on Spotify. Each track is an observation with characteristics about the music:
+
+-   Danceability (In a range from 0 to 1)
+
+-   Energy (In a range from 0 to 1)
+
+-   The Key (Integers mapping to pitches the 12 pitches)
+
+-   The Mode (Major and Minor although it be crazy if this could identify the
+    likability of modes like mixolydian)
+
+-   Loudness (Decimal in floating point) \* Speechiness (In a range from 0 to 1)
+
+-   Acousticness (In a range from 0 to 1) \* Instrumentalness (In a range from 0
+    to 1)
+
+-   Liveness (Presence of audience in a range from 0 to 1)
+
+-   [Valence](https://en.wikipedia.org/wiki/Valence_(psychology)) (Positiveness
+    from 0 to 1)
+
+As well as more basic statistics, like:
+
+-   Tempo (BPM floating point)
+
+-   Duration (Integer milliseconds)
+
+-   Explicitness (True or False)
+
+-   Popularity (I don't know how Spotify measures this integer, but 0 to 18)
+
+And of course, the name of the track, it's id, and the artist. The beauty of all
+this data is that it can all be scraped using the Spotify API, so any work with
+this data can be extended to make custom tools that interact with Spotify. If we
+apply clustering to this data, we will be able to form some groups of within the
+data and understand what genres might be unpopular on Spotify.
+
+We even have genre data that we can later use to analyze whether the
+unsupervised clustering is getting close to the genres we saw. The current
+hypothesis is that that is very unlikely due to the complexity of music, but we
+shall see!
+
 # Exploring Our Data
+
+First we must load it in!
+
+```{r}
+spotify <- read.csv("data/unpopular_songs.csv")
+head(spotify)
+```
+
+Looking good, although we would want to categorize the enumerated attributes key
+and mode, as well as factor explicitness.
+
+```{r}
+# Make qualitative attributes into factors
+spotify$key <- as.factor(spotify$key)
+spotify$mode <- as.factor(spotify$mode)
+spotify$explicit <- as.factor(spotify$explicit)
+
+# Label the factors that are just enumerators
+keys <- c("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+modes <- c("Major", "Minor")
+levels(spotify$mode) <- as.factor(modes)
+levels(spotify$key) <- as.factor(keys)
+str(spotify)
+```
+
+Now our data is easier to read! Note that I labeled the data major and minor,
+while we don't actually know if 0 or 1 equals major or minor. I suspect a strong
+bias towards the first factor being major. In the case of our clustering results
+this doesn't matter!
+
+## Statistics
+
+While there might be slight correlations between various factors, you would
+expect this data to be visually hard to see trends in.
+
+```{r}
+cor(spotify[])
+```
+
+## Graphics
 
 # Clustering Algorithms
 
