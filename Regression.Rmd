@@ -127,13 +127,15 @@ plot(linreg)
 ## kNN regression
 
 Load required library for prediction
-Also, need to convert factors back to characters since kNN model does not like factors.
+Since kNN model does not like factors, we will exclude it when making the model.
+We will only use numeric cols for prediction, and scale them too (since it produces better results that way).
+We will need to find the best k value before making the model.
 ```{r}
 library(caret)
 str(df)
 df <- df_temp
-df$Summary <- as.character(df$Summary)
-df$Precip.Type <- as.character(df$Precip.Type)
+#df$Summary <- as.character(df$Summary)
+#df$Precip.Type <- as.character(df$Precip.Type)
 #str(df)
 #colnames(df)
 df <- df[-10]
@@ -141,10 +143,77 @@ str(df)
 trainindex <- sample(1:nrow(df),nrow(df)*.8,replace=FALSE)
 train <- df[trainindex,]
 test <- df[-trainindex,]
-fit <- knnreg(train[,4:11], train[,12], k=3)
+
+#Finding the best k
+#Try various values of k and plot the results. 
+cor_k <- rep(0, 20)
+mse_k <- rep(0, 20)
+i <- 1
+for (k in seq(1, 39, 2)){
+  fit_k <- knnreg(train_scaled,train$Temperature.TempDiff, k=k)
+  pred_k <- predict(fit_k, test_scaled)
+  cor_k[i] <- cor(pred_k, test$Temperature.TempDiff)
+  mse_k[i] <- mean((pred_k - test$Temperature.TempDiff)^2)
+  print(paste("k=", k, cor_k[i], mse_k[i]))
+  i <- i + 1
+}
+plot(1:20, cor_k, lwd=2, col='red', ylab="", yaxt='n')
+par(new=TRUE)
+plot(1:20, mse_k, lwd=2, col='blue', labels=FALSE, ylab="", yaxt='n')
+
+#Find the best k
+which.min(mse_k)  # MSE is min when k = 3 (2nd array element)
+which.max(cor_k)  # COR is max when k = 5 (3rd array element)
+
+#Scaling training data
+train_scaled <- train[,4:10]
+means <- sapply(train_scaled, mean)
+stdevs <- sapply(train_scaled, sd)
+train_scaled <- scale(train_scaled, center=means, scale=stdevs)
+test_scaled <- scale(test[,4:10], center=means, scale=stdevs)
+
+fit <- knnreg(train_scaled, train$Temperature.TempDiff, k=3)
 
 ```
   
+Since the min MSE index (2) and max COR index (3) don't coincide, we will arbitrarily choose to have the minimum MSE index where k = 3.
+
+## Decision tree regression
+
+Load required library for prediction
+
+```{r}
+install.packages("tree")
+library(tree)
+install.packages("MASS")
+library(MASS)
+str(df)
+
+
+```
+
+Can use all cols to predict the temperature difference in decision tree.
+Pruned the tree according to the best number of leaf nodes in the tree.
+```{r}
+tree1 <- tree(Temperature.TempDiff~., data=train)
+summary(tree1)
+treepred <- predict(tree1, newdata=test)
+print(paste('correlation:', cor(treepred, test$Temperature.TempDiff)))
+rmse_tree <- sqrt(mean((treepred-test$Temperature.TempDiff)^2))
+print(paste('rmse:', rmse_tree))
+plot(tree1)
+text(tree1, cex=0.5, pretty=0)
+
+# cross validation
+cv_tree <- cv.tree(tree1)
+plot(cv_tree$size, cv_tree$dev, type='b')
+
+# prune the tree
+tree_pruned <- prune.tree(tree1, best=5)
+plot(tree_pruned)
+text(tree_pruned, pretty=0)
+```
+
 ## Predictions
   Using the three models, we will predict and evaluate using the metric correlation and MSE. 
 ```{r}
@@ -154,28 +223,45 @@ linregcor <- cor(linregpred,test$Temperature.TempDiff)
 linregmse <- mean((linregpred-test$Temperature.TempDiff)^2)
 linregrmse <- sqrt(linregmse)
 
-# errors happening here
-knnpred <- predict(fit, test[,4:11])
-knncor <- cor(knnpred, test$Temperature.TempDiff)
-knnmse <- mean((knnpred-test$Temperature.TempDiff)^2)
-knnrmse <- sqrt(knnmse)
 #Output results
 print("-------Linear Regression Model-------")
 print(paste("Correlation: ", linregcor))
 print(paste("MSE: ", linregmse))
 print(paste("RMSE: ", linregrmse))
+
+```
+
+```{r}
+knnpred <- predict(fit, test_scaled)
+knncor <- cor(knnpred, test$Temperature.TempDiff)
+knnmse <- mean((knnpred-test$Temperature.TempDiff)^2)
+knnrmse <- sqrt(knnmse)
+
+#Output results
 print("-------kNN Model-------")
 print(paste("Correlation: ", knncor))
 print(paste("MSE: ", knnmse))
 print(paste("RMSE: ", knnrmse))
 
 ```
+
+```{r}
+# test on the pruned tree
+pred_pruned <- predict(tree_pruned, newdata=test)
+cor_pruned <- cor(pred_pruned, test$Temperature.TempDiff)
+mse_pruned <- mean((pred_pruned-test$Temperature.TempDiff)^2)
+rmse_pruned <- sqrt(mse_pruned)
+
+#Output results
+print("-------Decision Tree Model-------")
+print(paste("Correlation: ", cor_pruned))
+print(paste("MSE: ", mse_pruned))
+print(paste("RMSE: ", rmse_pruned))
+```
+  The highest correlation was by the kNN regression model (0.99), followed by the decision tree regression model (0.87), and lastly the linear regression model (0.84). Unsurprisingly, the order for the lowest mean squared error and root mean squared error is in the same ordeR: kNN (0.034 MSE and 0.18 RMSE), decision tree (0.69 MSE and 0.83 RMSE), and linear model (0.85 MSE and 0.92 RMSE). By analyzing the results, it is easy to conclude that the kNN model is the best for predicting the difference in the actual and apparent temperatures. 
+  
 # Conclusion and Analysis
 
- Judging by these values, we can verify our evaluation that the combination linear regression model was the best model for our data. The low MSE (mean squared error) in comparison to the simple and multiple models means that the mistakes made were smaller than others. The RMSE (root MSE) says that we were off, on average, .939 degrees Celsius. While this isn't entirely accurate, the range of the value was around -5 degrees to +10 degrees, and if someone was predicting the weather the average person would likely be tolerant of a one degree difference. In that sense, the multiple regression would also be considered accurate enough to be helpful. The simple model is not terrible either, however the low correlation and high MSE do support the fact that there is much more room for improvement.
-  
-  The difference in temperature is not extremely related to the wind speed, as we attempted in that first model. While it is a factor, the apparent temperature is a multifaceted issue better represented by numerous other effects, such as Humidity, precipitation, etc. 
-  
-  Our results were also very good considering we were purposely avoiding using one aspect of given data, and that there were disparities showing what may have been differences due to how different contributors to the data set initially reading data in different ways.
-  
-  In summary, we can extract a surprising amount of data about the disparity in temperature based on wind, humidity, precipitation, and even descriptors of the sky. The more we combine usage of different attributes, acknowledging how they interact and work together, the better a result we can get.
+ Due to kNN not being interpretable, it is hard to pinpoint exactly why this model predicts better than other models. Something we did different when preparing the data for this model was scaling the numeric columns before using them to predict the difference in temperatures. This scaling of the data could have created better predictors than our original columns. 
+ The decision tree model also did quite well, despite not being the most accurate algorithm (since it is a greedy algorithm that can only divide data by making linear boundaries). However, it is highly interpretable and seemed to find significant predictors (apparent temperature and wind speed) easily. 
+ For the linear model, it was up to us to choose the predictors, and we chose humidity, wind speed, precipitation type, and summary. It is easy to understand that due to limited information and data exploration, we may have picked unnecessary predictors or excluded significant ones. In this case, the true relationship between the different temperatures may not have been linear which prevented this model from being more accurate. 
