@@ -23,7 +23,7 @@ This notebook explores song data from [Kaggle](https://www.kaggle.com/datasets/b
 
 Load the weatherHistory.csv file. 
 ```{r}
-df <- read.csv("weatherHistory.csv")
+df <- read.csv("data/weatherHistory.csv")
 df_temp <- df
 str(df)
 ```
