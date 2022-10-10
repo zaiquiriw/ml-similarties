@@ -1,7 +1,7 @@
 ---
 title: "Dimensionality"
 author: Aarushi Pandey ^[[Aarushi's Portfolio](https://github.com/Aarushi-Pandey/Portfolio_ML)]
-        Brandon Runyon ^[[Brandon's Portfolio]()]
+        Brandon Runyon ^[[Brandon's Portfolio](https://github.com/Unicoranium/CS4375)]
         Zachary Canoot ^[[Zaiquiri's Portfolio](https://zaiquiriw.github.io/ml-portfolio/)]
         Gray Simpson ^[[Gray's Porfolio](https://ecclysium.github.io/MachineLearning_Portfolio/)]
 date: "`r format(Sys.time(), '%d %B, %Y')`"
