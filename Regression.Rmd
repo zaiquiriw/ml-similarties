@@ -144,6 +144,13 @@ trainindex <- sample(1:nrow(df),nrow(df)*.8,replace=FALSE)
 train <- df[trainindex,]
 test <- df[-trainindex,]
 
+#Scaling training data
+train_scaled <- train[,4:10]
+means <- sapply(train_scaled, mean)
+stdevs <- sapply(train_scaled, sd)
+train_scaled <- scale(train_scaled, center=means, scale=stdevs)
+test_scaled <- scale(test[,4:10], center=means, scale=stdevs)
+
 #Finding the best k
 #Try various values of k and plot the results. 
 cor_k <- rep(0, 20)
@@ -165,13 +172,6 @@ plot(1:20, mse_k, lwd=2, col='blue', labels=FALSE, ylab="", yaxt='n')
 which.min(mse_k)  # MSE is min when k = 3 (2nd array element)
 which.max(cor_k)  # COR is max when k = 5 (3rd array element)
 
-#Scaling training data
-train_scaled <- train[,4:10]
-means <- sapply(train_scaled, mean)
-stdevs <- sapply(train_scaled, sd)
-train_scaled <- scale(train_scaled, center=means, scale=stdevs)
-test_scaled <- scale(test[,4:10], center=means, scale=stdevs)
-
 fit <- knnreg(train_scaled, train$Temperature.TempDiff, k=3)
 
 ```
@@ -183,9 +183,9 @@ Since the min MSE index (2) and max COR index (3) don't coincide, we will arbitr
 Load required library for prediction
 
 ```{r}
-install.packages("tree")
+#install.packages("tree")
 library(tree)
-install.packages("MASS")
+#install.packages("MASS")
 library(MASS)
 str(df)
 
@@ -260,7 +260,7 @@ print(paste("RMSE: ", rmse_pruned))
 ```
   The highest correlation was by the kNN regression model (0.99), followed by the decision tree regression model (0.87), and lastly the linear regression model (0.84). Unsurprisingly, the order for the lowest mean squared error and root mean squared error is in the same ordeR: kNN (0.034 MSE and 0.18 RMSE), decision tree (0.69 MSE and 0.83 RMSE), and linear model (0.85 MSE and 0.92 RMSE). By analyzing the results, it is easy to conclude that the kNN model is the best for predicting the difference in the actual and apparent temperatures. 
   
-# Conclusion and Analysis
+#d. Conclusion and Analysis
 
  Due to kNN not being interpretable, it is hard to pinpoint exactly why this model predicts better than other models. Something we did different when preparing the data for this model was scaling the numeric columns before using them to predict the difference in temperatures. This scaling of the data could have created better predictors than our original columns. 
  The decision tree model also did quite well, despite not being the most accurate algorithm (since it is a greedy algorithm that can only divide data by making linear boundaries). However, it is highly interpretable and seemed to find significant predictors (apparent temperature and wind speed) easily. 
