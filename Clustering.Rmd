@@ -403,7 +403,7 @@ trends in what kind of songs were in this lower popularity of music.
     then whats to come:
 
 -   Model-Based clustering feels like magic. The implementation of comparing the
-    likelyhoods of a model fitting a given value, and dividing the clusters to
+    likelihoods of a model fitting a given value, and dividing the clusters to
     maximize probability is very ingenious. The result was the overall diagonal
     shape being found in the data. Something that I could not have seen in the
     data. This also meant the 5 clusters found were a bit more purposefully
